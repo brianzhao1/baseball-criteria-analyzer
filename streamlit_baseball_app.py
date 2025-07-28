@@ -468,9 +468,9 @@ def main():
                 title="Key Betting Categories (6+ First 5 Focus)",
                 xaxis_title="Category",
                 yaxis_title="Number of Games",
-                height=400
+                height=400,
+                xaxis=dict(tickangle=45)
             )
-            fig_money.update_xaxis(tickangle=45)
             st.plotly_chart(fig_money, use_container_width=True)
         
         with col2:
