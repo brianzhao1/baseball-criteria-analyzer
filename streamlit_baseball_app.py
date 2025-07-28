@@ -155,6 +155,53 @@ def meets_criteria_y(game_data):
     
     return runs_first_5 >= 6 and total_runs <= 9
 
+def analyze_push_combinations(games):
+    """Analyze games around push numbers (6 first 5, 9 total) for betting insights"""
+    results = {
+        'exactly_6_first5_under9': [],
+        'exactly_6_first5_exactly9': [],
+        'exactly_6_first5_over9': [],
+        'over6_first5_under9': [],
+        'over6_first5_exactly9': [],
+        'over6_first5_over9': [],
+        'under6_first5_under9': [],
+        'under6_first5_exactly9': [],
+        'under6_first5_over9': []
+    }
+    
+    for game in games:
+        if not game or not game['innings']:
+            continue
+            
+        runs_first_5 = sum(inning['away_runs'] + inning['home_runs'] 
+                          for inning in game['innings'][:5])
+        total_runs = game['away_score'] + game['home_score']
+        
+        # Categorize based on first 5 innings
+        if runs_first_5 == 6:
+            if total_runs < 9:
+                results['exactly_6_first5_under9'].append(game)
+            elif total_runs == 9:
+                results['exactly_6_first5_exactly9'].append(game)
+            else:
+                results['exactly_6_first5_over9'].append(game)
+        elif runs_first_5 > 6:
+            if total_runs < 9:
+                results['over6_first5_under9'].append(game)
+            elif total_runs == 9:
+                results['over6_first5_exactly9'].append(game)
+            else:
+                results['over6_first5_over9'].append(game)
+        else:  # runs_first_5 < 6
+            if total_runs < 9:
+                results['under6_first5_under9'].append(game)
+            elif total_runs == 9:
+                results['under6_first5_exactly9'].append(game)
+            else:
+                results['under6_first5_over9'].append(game)
+    
+    return results
+
 def get_sample_data():
     """Fallback sample data if API fails"""
     return [
@@ -253,6 +300,9 @@ def main():
         # Remove Criteria X games from Criteria Y to avoid double counting
         criteria_y_only = [game for game in criteria_y_games if not meets_criteria_x(game)]
         
+        # Analyze push combinations for betting insights
+        push_analysis = analyze_push_combinations(games)
+        
         x_count = len(criteria_x_games)
         y_count = len(criteria_y_only)
         total_matching = x_count + y_count
@@ -335,11 +385,151 @@ def main():
                 fig_bar.update_layout(height=400, showlegend=False)
                 st.plotly_chart(fig_bar, use_container_width=True)
         
+        # Push Number Analysis for Betting
+        st.subheader("🎰 Push Number Analysis (Betting Insights)")
+        st.markdown("**Key insight**: Analyzing games around push numbers (6 first 5, 9 total) to identify profitable betting patterns")
+        
+        # Create a detailed breakdown table
+        push_data = []
+        labels = {
+            'exactly_6_first5_under9': 'Exactly 6 First 5, Under 9 Total',
+            'exactly_6_first5_exactly9': 'Exactly 6 First 5, Exactly 9 Total (PUSH)',
+            'exactly_6_first5_over9': 'Exactly 6 First 5, Over 9 Total',
+            'over6_first5_under9': 'Over 6 First 5, Under 9 Total (Criteria X)',
+            'over6_first5_exactly9': 'Over 6 First 5, Exactly 9 Total',
+            'over6_first5_over9': 'Over 6 First 5, Over 9 Total',
+            'under6_first5_under9': 'Under 6 First 5, Under 9 Total',
+            'under6_first5_exactly9': 'Under 6 First 5, Exactly 9 Total (PUSH)',
+            'under6_first5_over9': 'Under 6 First 5, Over 9 Total'
+        }
+        
+        profitability_colors = {
+            'exactly_6_first5_under9': '#1f77b4',  # Blue - High profit potential
+            'exactly_6_first5_exactly9': '#ff7f0e',  # Orange - Push
+            'exactly_6_first5_over9': '#d62728',  # Red - Losing bet
+            'over6_first5_under9': '#2ca02c',  # Green - Criteria X (most profitable)
+            'over6_first5_exactly9': '#ff7f0e',  # Orange - Push
+            'over6_first5_over9': '#d62728',  # Red - Losing bet
+            'under6_first5_under9': '#9467bd',  # Purple - Standard
+            'under6_first5_exactly9': '#ff7f0e',  # Orange - Push
+            'under6_first5_over9': '#8c564b'  # Brown - Standard
+        }
+        
+        for key, games_list in push_analysis.items():
+            count = len(games_list)
+            percentage = (count / total_games * 100) if total_games > 0 else 0
+            
+            # Determine profitability
+            if 'over6_first5_under9' in key:
+                profit_indicator = "💰 HIGH PROFIT"
+            elif 'exactly_6_first5_under9' in key:
+                profit_indicator = "💵 GOOD PROFIT"
+            elif 'exactly9' in key:
+                profit_indicator = "🟡 PUSH"
+            elif 'over9' in key and 'first5' in key:
+                profit_indicator = "❌ LOSS"
+            else:
+                profit_indicator = "📊 STANDARD"
+            
+            push_data.append({
+                'Category': labels[key],
+                'Count': count,
+                'Percentage': f"{percentage:.1f}%",
+                'Profit': profit_indicator
+            })
+        
+        # Display as table
+        push_df = pd.DataFrame(push_data)
+        st.dataframe(push_df, use_container_width=True)
+        
+        # Visual breakdown
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Focus on the money-making combinations
+            money_categories = []
+            money_counts = []
+            money_colors = []
+            
+            for key, games_list in push_analysis.items():
+                if key in ['over6_first5_under9', 'exactly_6_first5_under9', 'exactly_6_first5_exactly9', 'over6_first5_exactly9']:
+                    money_categories.append(labels[key].replace(' Total', '').replace(' First 5', ''))
+                    money_counts.append(len(games_list))
+                    money_colors.append(profitability_colors[key])
+            
+            fig_money = go.Figure(data=[go.Bar(
+                x=money_categories,
+                y=money_counts,
+                marker_color=money_colors,
+                text=money_counts,
+                textposition='auto'
+            )])
+            fig_money.update_layout(
+                title="Key Betting Categories (6+ First 5 Focus)",
+                xaxis_title="Category",
+                yaxis_title="Number of Games",
+                height=400
+            )
+            fig_money.update_xaxis(tickangle=45)
+            st.plotly_chart(fig_money, use_container_width=True)
+        
+        with col2:
+            # Push number breakdown
+            push_counts = [
+                len(push_analysis['exactly_6_first5_exactly9']),  # 6 first 5, exactly 9
+                len(push_analysis['under6_first5_exactly9']),     # under 6 first 5, exactly 9
+                len(push_analysis['over6_first5_exactly9'])       # over 6 first 5, exactly 9
+            ]
+            
+            fig_push = go.Figure(data=[go.Pie(
+                labels=['6 First 5, 9 Total', 'Under 6 First 5, 9 Total', 'Over 6 First 5, 9 Total'],
+                values=push_counts,
+                hole=0.4,
+                marker_colors=['#ff7f0e', '#9467bd', '#2ca02c']
+            )])
+            fig_push.update_layout(
+                title="Push Scenarios (Exactly 9 Total Runs)",
+                height=400
+            )
+            st.plotly_chart(fig_push, use_container_width=True)
+        
+        # Key insights
+        st.markdown("### 💡 Key Betting Insights")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            criteria_x_count = len(push_analysis['over6_first5_under9'])
+            st.metric(
+                "💰 Most Profitable",
+                f"{criteria_x_count} games",
+                f"{(criteria_x_count/total_games*100):.1f}%",
+                help="7+ first 5, under 9 total (Criteria X)"
+            )
+        
+        with col2:
+            push_total = len(push_analysis['exactly_6_first5_exactly9']) + len(push_analysis['under6_first5_exactly9']) + len(push_analysis['over6_first5_exactly9'])
+            st.metric(
+                "🟡 Push Games",
+                f"{push_total} games",
+                f"{(push_total/total_games*100):.1f}%",
+                help="Games ending at exactly 9 runs"
+            )
+        
+        with col3:
+            edge_case_count = len(push_analysis['exactly_6_first5_under9'])
+            st.metric(
+                "💵 Edge Cases",
+                f"{edge_case_count} games",
+                f"{(edge_case_count/total_games*100):.1f}%",
+                help="Exactly 6 first 5, under 9 total"
+            )
+        
         # Sample games list with tabs
         st.subheader("🎯 Sample Matching Games")
         
         if total_matching > 0:
-            tab1, tab2 = st.tabs([f"🎯 Criteria X ({x_count} games)", f"🎲 Criteria Y ({y_count} games)"])
+            tab1, tab2, tab3 = st.tabs([f"🎯 Criteria X ({x_count} games)", f"🎲 Criteria Y ({y_count} games)", f"🎰 Push Analysis"])
             
             with tab1:
                 st.markdown("**Criteria X**: 7+ runs in first 5 innings AND under 9 total runs")
@@ -424,6 +614,36 @@ def main():
                         st.info(f"Showing 10 of {len(criteria_y_only)} Criteria Y games.")
                 else:
                     st.info("No games found matching Criteria Y only.")
+            
+            with tab3:
+                st.markdown("**Push Number Breakdown**: Games around critical betting numbers")
+                
+                # Show key categories with sample games
+                key_categories = [
+                    ('over6_first5_under9', '💰 Most Profitable: 7+ First 5, Under 9 Total'),
+                    ('exactly_6_first5_under9', '💵 Edge Case: Exactly 6 First 5, Under 9 Total'),
+                    ('exactly_6_first5_exactly9', '🟡 Push: Exactly 6 First 5, Exactly 9 Total'),
+                    ('over6_first5_exactly9', '🟡 Push: 7+ First 5, Exactly 9 Total')
+                ]
+                
+                for key, title in key_categories:
+                    games_in_category = push_analysis[key]
+                    if games_in_category:
+                        st.markdown(f"**{title}** ({len(games_in_category)} games)")
+                        
+                        # Show first 3 games in each category
+                        for i, game in enumerate(games_in_category[:3]):
+                            runs_first_5 = sum(inning['away_runs'] + inning['home_runs'] 
+                                             for inning in game['innings'][:5])
+                            total_runs = game['away_score'] + game['home_score']
+                            
+                            st.write(f"   {i+1}. {game['date'][:10]}: {game['away_team']} @ {game['home_team']} "
+                                   f"({game['away_score']}-{game['home_score']}) - "
+                                   f"First 5: {runs_first_5}, Total: {total_runs}")
+                        
+                        if len(games_in_category) > 3:
+                            st.write(f"   ... and {len(games_in_category) - 3} more games")
+                        st.markdown("---")
         else:
             st.info("No games found matching either criteria in the analyzed dataset.")
         
