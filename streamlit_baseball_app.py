@@ -133,8 +133,8 @@ def extract_game_data(game):
     except Exception:
         return None
 
-def meets_criteria(game_data):
-    """Check if game meets Criteria X"""
+def meets_criteria_x(game_data):
+    """Check if game meets Criteria X: 7+ runs in first 5 innings AND under 9 total runs"""
     if not game_data or not game_data['innings']:
         return False
     
@@ -143,6 +143,17 @@ def meets_criteria(game_data):
     total_runs = game_data['away_score'] + game_data['home_score']
     
     return runs_first_5 >= 7 and total_runs < 9
+
+def meets_criteria_y(game_data):
+    """Check if game meets Criteria Y: 6+ runs in first 5 innings AND 9 or fewer total runs"""
+    if not game_data or not game_data['innings']:
+        return False
+    
+    runs_first_5 = sum(inning['away_runs'] + inning['home_runs'] 
+                      for inning in game_data['innings'][:5])
+    total_runs = game_data['away_score'] + game_data['home_score']
+    
+    return runs_first_5 >= 6 and total_runs <= 9
 
 def get_sample_data():
     """Fallback sample data if API fails"""
@@ -192,7 +203,8 @@ def main():
     # Criteria explanation
     st.markdown("""
     <div class="criteria-box">
-        <strong>Criteria X:</strong> Games with 7+ runs in first 5 innings AND under 9 total runs
+        <strong>Criteria X:</strong> Games with 7+ runs in first 5 innings AND under 9 total runs<br>
+        <strong>Criteria Y:</strong> Games with 6+ runs in first 5 innings AND 9 or fewer total runs
     </div>
     """, unsafe_allow_html=True)
     
@@ -235,12 +247,22 @@ def main():
         
         # Analyze games
         total_games = len(games)
-        matching_games = [game for game in games if meets_criteria(game)]
-        match_count = len(matching_games)
-        percentage = (match_count / total_games * 100) if total_games > 0 else 0
+        criteria_x_games = [game for game in games if meets_criteria_x(game)]
+        criteria_y_games = [game for game in games if meets_criteria_y(game)]
+        
+        # Remove Criteria X games from Criteria Y to avoid double counting
+        criteria_y_only = [game for game in criteria_y_games if not meets_criteria_x(game)]
+        
+        x_count = len(criteria_x_games)
+        y_count = len(criteria_y_only)
+        total_matching = x_count + y_count
+        
+        x_percentage = (x_count / total_games * 100) if total_games > 0 else 0
+        y_percentage = (y_count / total_games * 100) if total_games > 0 else 0
+        total_percentage = (total_matching / total_games * 100) if total_games > 0 else 0
         
         # Display results
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         
         with col1:
             st.metric(
@@ -251,31 +273,41 @@ def main():
         
         with col2:
             st.metric(
-                label="✅ Matching Games",
-                value=f"{match_count:,}",
-                help="Games meeting Criteria X"
+                label="🎯 Criteria X",
+                value=f"{x_count:,}",
+                delta=f"{x_percentage:.1f}%",
+                help="7+ runs in first 5, under 9 total"
             )
         
         with col3:
             st.metric(
-                label="📊 Match Rate",
-                value=f"{percentage:.1f}%",
-                help="Percentage of games meeting criteria"
+                label="🎲 Criteria Y",
+                value=f"{y_count:,}",
+                delta=f"{y_percentage:.1f}%",
+                help="6+ runs in first 5, ≤9 total (excluding Criteria X)"
+            )
+        
+        with col4:
+            st.metric(
+                label="✅ Total Match",
+                value=f"{total_matching:,}",
+                delta=f"{total_percentage:.1f}%",
+                help="Combined criteria matches"
             )
         
         # Visualization
-        if matching_games:
+        if total_matching > 0:
             st.subheader("📈 Data Visualization")
             
             # Create pie chart
             fig_pie = go.Figure(data=[go.Pie(
-                labels=['Matching Games', 'Other Games'],
-                values=[match_count, total_games - match_count],
+                labels=['Criteria X (7+, <9)', 'Criteria Y (6+, ≤9)', 'Other Games'],
+                values=[x_count, y_count, total_games - total_matching],
                 hole=0.4,
-                marker_colors=['#1f77b4', '#ff7f0e']
+                marker_colors=['#1f77b4', '#ff7f0e', '#d3d3d3']
             )])
             fig_pie.update_layout(
-                title="Games Meeting Criteria X",
+                title="Games Meeting Both Criteria",
                 height=400
             )
             
@@ -285,99 +317,220 @@ def main():
                 st.plotly_chart(fig_pie, use_container_width=True)
             
             with col2:
-                # Create bar chart of runs by inning for sample games
-                if matching_games:
-                    sample_game = matching_games[0]
-                    innings_data = []
-                    for inning in sample_game['innings']:
-                        innings_data.append({
-                            'Inning': f"Inning {inning['inning']}",
-                            'Runs': inning['away_runs'] + inning['home_runs']
-                        })
-                    
-                    df_innings = pd.DataFrame(innings_data)
-                    fig_bar = px.bar(
-                        df_innings, 
-                        x='Inning', 
-                        y='Runs',
-                        title=f"Sample Game: {sample_game['away_team']} @ {sample_game['home_team']}",
-                        color='Runs',
-                        color_continuous_scale='Blues'
-                    )
-                    fig_bar.update_layout(height=400)
-                    st.plotly_chart(fig_bar, use_container_width=True)
+                # Create comparison bar chart
+                comparison_data = pd.DataFrame({
+                    'Criteria': ['Criteria X\n(7+, <9)', 'Criteria Y\n(6+, ≤9)', 'Other Games'],
+                    'Count': [x_count, y_count, total_games - total_matching],
+                    'Percentage': [x_percentage, y_percentage, 100 - total_percentage]
+                })
+                
+                fig_bar = px.bar(
+                    comparison_data, 
+                    x='Criteria', 
+                    y='Count',
+                    title="Criteria Comparison",
+                    color='Criteria',
+                    color_discrete_sequence=['#1f77b4', '#ff7f0e', '#d3d3d3']
+                )
+                fig_bar.update_layout(height=400, showlegend=False)
+                st.plotly_chart(fig_bar, use_container_width=True)
         
-        # Sample games list
+        # Sample games list with tabs
         st.subheader("🎯 Sample Matching Games")
         
-        if matching_games:
-            for i, game in enumerate(matching_games[:10]):
-                runs_first_5 = sum(inning['away_runs'] + inning['home_runs'] 
-                                 for inning in game['innings'][:5])
-                total_runs = game['away_score'] + game['home_score']
-                
-                with st.expander(f"Game {i+1}: {game['away_team']} @ {game['home_team']} ({game['away_score']}-{game['home_score']})"):
-                    col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        st.write(f"**Date:** {game['date'][:10]}")
-                        st.write(f"**Final Score:** {game['away_score']}-{game['home_score']}")
-                    
-                    with col2:
-                        st.write(f"**First 5 Innings:** {runs_first_5} runs")
-                        st.write(f"**Total Runs:** {total_runs} runs")
-                    
-                    with col3:
-                        st.write("**✅ Meets Criteria X**")
-                        st.write(f"7+ in first 5: {'✅' if runs_first_5 >= 7 else '❌'}")
-                        st.write(f"Under 9 total: {'✅' if total_runs < 9 else '❌'}")
-                    
-                    # Inning by inning breakdown
-                    inning_df = pd.DataFrame([
-                        {
-                            'Inning': f"Inn {inning['inning']}",
-                            'Away': inning['away_runs'],
-                            'Home': inning['home_runs'],
-                            'Total': inning['away_runs'] + inning['home_runs']
-                        }
-                        for inning in game['innings']
-                    ])
-                    
-                    st.dataframe(inning_df, use_container_width=True)
+        if total_matching > 0:
+            tab1, tab2 = st.tabs([f"🎯 Criteria X ({x_count} games)", f"🎲 Criteria Y ({y_count} games)"])
             
-            if len(matching_games) > 10:
-                st.info(f"Showing 10 of {len(matching_games)} matching games. Run with more days to see additional games.")
+            with tab1:
+                st.markdown("**Criteria X**: 7+ runs in first 5 innings AND under 9 total runs")
+                if criteria_x_games:
+                    for i, game in enumerate(criteria_x_games[:10]):
+                        runs_first_5 = sum(inning['away_runs'] + inning['home_runs'] 
+                                         for inning in game['innings'][:5])
+                        total_runs = game['away_score'] + game['home_score']
+                        
+                        with st.expander(f"Game {i+1}: {game['away_team']} @ {game['home_team']} ({game['away_score']}-{game['home_score']})"):
+                            col1, col2, col3 = st.columns(3)
+                            
+                            with col1:
+                                st.write(f"**Date:** {game['date'][:10]}")
+                                st.write(f"**Final Score:** {game['away_score']}-{game['home_score']}")
+                            
+                            with col2:
+                                st.write(f"**First 5 Innings:** {runs_first_5} runs")
+                                st.write(f"**Total Runs:** {total_runs} runs")
+                            
+                            with col3:
+                                st.write("**✅ Meets Criteria X**")
+                                st.write(f"7+ in first 5: {'✅' if runs_first_5 >= 7 else '❌'}")
+                                st.write(f"Under 9 total: {'✅' if total_runs < 9 else '❌'}")
+                            
+                            # Inning by inning breakdown
+                            inning_df = pd.DataFrame([
+                                {
+                                    'Inning': f"Inn {inning['inning']}",
+                                    'Away': inning['away_runs'],
+                                    'Home': inning['home_runs'],
+                                    'Total': inning['away_runs'] + inning['home_runs']
+                                }
+                                for inning in game['innings']
+                            ])
+                            
+                            st.dataframe(inning_df, use_container_width=True)
+                    
+                    if len(criteria_x_games) > 10:
+                        st.info(f"Showing 10 of {len(criteria_x_games)} Criteria X games.")
+                else:
+                    st.info("No games found matching Criteria X.")
+            
+            with tab2:
+                st.markdown("**Criteria Y**: 6+ runs in first 5 innings AND 9 or fewer total runs (excluding Criteria X)")
+                if criteria_y_only:
+                    for i, game in enumerate(criteria_y_only[:10]):
+                        runs_first_5 = sum(inning['away_runs'] + inning['home_runs'] 
+                                         for inning in game['innings'][:5])
+                        total_runs = game['away_score'] + game['home_score']
+                        
+                        with st.expander(f"Game {i+1}: {game['away_team']} @ {game['home_team']} ({game['away_score']}-{game['home_score']})"):
+                            col1, col2, col3 = st.columns(3)
+                            
+                            with col1:
+                                st.write(f"**Date:** {game['date'][:10]}")
+                                st.write(f"**Final Score:** {game['away_score']}-{game['home_score']}")
+                            
+                            with col2:
+                                st.write(f"**First 5 Innings:** {runs_first_5} runs")
+                                st.write(f"**Total Runs:** {total_runs} runs")
+                            
+                            with col3:
+                                st.write("**✅ Meets Criteria Y**")
+                                st.write(f"6+ in first 5: {'✅' if runs_first_5 >= 6 else '❌'}")
+                                st.write(f"≤9 total: {'✅' if total_runs <= 9 else '❌'}")
+                            
+                            # Inning by inning breakdown
+                            inning_df = pd.DataFrame([
+                                {
+                                    'Inning': f"Inn {inning['inning']}",
+                                    'Away': inning['away_runs'],
+                                    'Home': inning['home_runs'],
+                                    'Total': inning['away_runs'] + inning['home_runs']
+                                }
+                                for inning in game['innings']
+                            ])
+                            
+                            st.dataframe(inning_df, use_container_width=True)
+                    
+                    if len(criteria_y_only) > 10:
+                        st.info(f"Showing 10 of {len(criteria_y_only)} Criteria Y games.")
+                else:
+                    st.info("No games found matching Criteria Y only.")
         else:
-            st.info("No games found matching Criteria X in the analyzed dataset.")
+            st.info("No games found matching either criteria in the analyzed dataset.")
         
         # Download data
-        if matching_games:
+        if total_matching > 0:
             st.subheader("💾 Download Data")
             
-            # Convert to DataFrame for download
-            download_data = []
-            for game in matching_games:
-                runs_first_5 = sum(inning['away_runs'] + inning['home_runs'] 
-                                 for inning in game['innings'][:5])
-                download_data.append({
-                    'Date': game['date'][:10],
-                    'Away Team': game['away_team'],
-                    'Home Team': game['home_team'],
-                    'Away Score': game['away_score'],
-                    'Home Score': game['home_score'],
-                    'First 5 Innings Runs': runs_first_5,
-                    'Total Runs': game['away_score'] + game['home_score']
-                })
+            col1, col2 = st.columns(2)
             
-            df_download = pd.DataFrame(download_data)
-            csv = df_download.to_csv(index=False)
+            with col1:
+                # Criteria X download
+                if criteria_x_games:
+                    download_data_x = []
+                    for game in criteria_x_games:
+                        runs_first_5 = sum(inning['away_runs'] + inning['home_runs'] 
+                                         for inning in game['innings'][:5])
+                        download_data_x.append({
+                            'Date': game['date'][:10],
+                            'Away Team': game['away_team'],
+                            'Home Team': game['home_team'],
+                            'Away Score': game['away_score'],
+                            'Home Score': game['home_score'],
+                            'First 5 Innings Runs': runs_first_5,
+                            'Total Runs': game['away_score'] + game['home_score'],
+                            'Criteria': 'X'
+                        })
+                    
+                    df_download_x = pd.DataFrame(download_data_x)
+                    csv_x = df_download_x.to_csv(index=False)
+                    
+                    st.download_button(
+                        label="📥 Download Criteria X Games (CSV)",
+                        data=csv_x,
+                        file_name=f'mlb_{season}_criteria_x_games.csv',
+                        mime='text/csv'
+                    )
             
-            st.download_button(
-                label="📥 Download Matching Games (CSV)",
-                data=csv,
-                file_name=f'mlb_{season}_criteria_x_games.csv',
-                mime='text/csv'
-            )
+            with col2:
+                # Criteria Y download
+                if criteria_y_only:
+                    download_data_y = []
+                    for game in criteria_y_only:
+                        runs_first_5 = sum(inning['away_runs'] + inning['home_runs'] 
+                                         for inning in game['innings'][:5])
+                        download_data_y.append({
+                            'Date': game['date'][:10],
+                            'Away Team': game['away_team'],
+                            'Home Team': game['home_team'],
+                            'Away Score': game['away_score'],
+                            'Home Score': game['home_score'],
+                            'First 5 Innings Runs': runs_first_5,
+                            'Total Runs': game['away_score'] + game['home_score'],
+                            'Criteria': 'Y'
+                        })
+                    
+                    df_download_y = pd.DataFrame(download_data_y)
+                    csv_y = df_download_y.to_csv(index=False)
+                    
+                    st.download_button(
+                        label="📥 Download Criteria Y Games (CSV)",
+                        data=csv_y,
+                        file_name=f'mlb_{season}_criteria_y_games.csv',
+                        mime='text/csv'
+                    )
+            
+            # Combined download
+            if criteria_x_games or criteria_y_only:
+                st.markdown("---")
+                all_matching = []
+                
+                for game in criteria_x_games:
+                    runs_first_5 = sum(inning['away_runs'] + inning['home_runs'] 
+                                     for inning in game['innings'][:5])
+                    all_matching.append({
+                        'Date': game['date'][:10],
+                        'Away Team': game['away_team'],
+                        'Home Team': game['home_team'],
+                        'Away Score': game['away_score'],
+                        'Home Score': game['home_score'],
+                        'First 5 Innings Runs': runs_first_5,
+                        'Total Runs': game['away_score'] + game['home_score'],
+                        'Criteria': 'X'
+                    })
+                
+                for game in criteria_y_only:
+                    runs_first_5 = sum(inning['away_runs'] + inning['home_runs'] 
+                                     for inning in game['innings'][:5])
+                    all_matching.append({
+                        'Date': game['date'][:10],
+                        'Away Team': game['away_team'],
+                        'Home Team': game['home_team'],
+                        'Away Score': game['away_score'],
+                        'Home Score': game['home_score'],
+                        'First 5 Innings Runs': runs_first_5,
+                        'Total Runs': game['away_score'] + game['home_score'],
+                        'Criteria': 'Y'
+                    })
+                
+                df_all = pd.DataFrame(all_matching)
+                csv_all = df_all.to_csv(index=False)
+                
+                st.download_button(
+                    label="📥 Download All Matching Games (CSV)",
+                    data=csv_all,
+                    file_name=f'mlb_{season}_all_criteria_games.csv',
+                    mime='text/csv'
+                )
 
     # Info section
     with st.sidebar:
@@ -387,6 +540,8 @@ def main():
         This app analyzes MLB games to find those meeting specific scoring criteria:
         
         **Criteria X:** Games with 7+ runs in the first 5 innings AND under 9 total runs for the entire game.
+        
+        **Criteria Y:** Games with 6+ runs in the first 5 innings AND 9 or fewer total runs (excluding Criteria X games).
         
         **Data Source:** MLB Stats API (when live data is enabled) or curated sample data.
         """)
