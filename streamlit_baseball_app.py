@@ -247,15 +247,6 @@ def main():
     # Header
     st.markdown('<div class="main-header">⚾ Baseball Criteria Analyzer</div>', unsafe_allow_html=True)
     
-    # Criteria explanation
-    criteria_text = f"""
-    <div class="criteria-box">
-        <strong>Criteria X:</strong> Games with {x_first5}+ runs in first 5 innings AND {x_operator}{x_total} total runs<br>
-        <strong>Criteria Y:</strong> Games with {y_first5}+ runs in first 5 innings AND {y_operator}{y_total} total runs
-    </div>
-    """
-    st.markdown(criteria_text, unsafe_allow_html=True)
-    
     # Sidebar
     st.sidebar.header("🎛️ Controls")
     
@@ -300,6 +291,15 @@ def main():
     st.sidebar.markdown("### 📋 Current Criteria")
     st.sidebar.markdown(f"**Criteria X:** {x_first5}+ first 5, {x_operator}{x_total} total")
     st.sidebar.markdown(f"**Criteria Y:** {y_first5}+ first 5, {y_operator}{y_total} total")
+    
+    # Criteria explanation (now that variables are defined)
+    criteria_text = f"""
+    <div class="criteria-box">
+        <strong>Criteria X:</strong> Games with {x_first5}+ runs in first 5 innings AND {x_operator}{x_total} total runs<br>
+        <strong>Criteria Y:</strong> Games with {y_first5}+ runs in first 5 innings AND {y_operator}{y_total} total runs
+    </div>
+    """
+    st.markdown(criteria_text, unsafe_allow_html=True)
     
     # Analyze button
     if st.sidebar.button("🔍 Analyze Games", type="primary"):
