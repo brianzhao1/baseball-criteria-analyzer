@@ -248,12 +248,13 @@ def main():
     st.markdown('<div class="main-header">⚾ Baseball Criteria Analyzer</div>', unsafe_allow_html=True)
     
     # Criteria explanation
-    st.markdown(f"""
+    criteria_text = f"""
     <div class="criteria-box">
         <strong>Criteria X:</strong> Games with {x_first5}+ runs in first 5 innings AND {x_operator}{x_total} total runs<br>
         <strong>Criteria Y:</strong> Games with {y_first5}+ runs in first 5 innings AND {y_operator}{y_total} total runs
     </div>
-    """, unsafe_allow_html=True)
+    """
+    st.markdown(criteria_text, unsafe_allow_html=True)
     
     # Sidebar
     st.sidebar.header("🎛️ Controls")
