@@ -265,14 +265,16 @@ def main():
     # Criteria X Configuration
     st.sidebar.subheader("🎯 Criteria X")
     x_first5 = st.sidebar.number_input("First 5 innings threshold", min_value=1, max_value=15, value=7, key="x_first5")
+    x_first5_operator = st.sidebar.selectbox("First 5 innings condition", [">=", ">", "=", "<=", "<"], index=0, key="x_first5_op")
     x_total = st.sidebar.number_input("Total runs threshold", min_value=1, max_value=25, value=9, key="x_total")
-    x_operator = st.sidebar.selectbox("Total runs condition", ["<", "<=", "=", ">"], index=0, key="x_op")
+    x_total_operator = st.sidebar.selectbox("Total runs condition", ["<", "<=", "=", ">=", ">"], index=0, key="x_total_op")
     
     # Criteria Y Configuration  
     st.sidebar.subheader("🎲 Criteria Y")
     y_first5 = st.sidebar.number_input("First 5 innings threshold", min_value=1, max_value=15, value=6, key="y_first5")
+    y_first5_operator = st.sidebar.selectbox("First 5 innings condition", [">=", ">", "=", "<=", "<"], index=0, key="y_first5_op")
     y_total = st.sidebar.number_input("Total runs threshold", min_value=1, max_value=25, value=9, key="y_total")
-    y_operator = st.sidebar.selectbox("Total runs condition", ["<", "<=", "=", ">"], index=1, key="y_op")
+    y_total_operator = st.sidebar.selectbox("Total runs condition", ["<", "<=", "=", ">=", ">"], index=1, key="y_total_op")
     
     # Push Analysis Configuration
     st.sidebar.subheader("🎰 Push Analysis")
@@ -289,14 +291,14 @@ def main():
     # Dynamic criteria display
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 📋 Current Criteria")
-    st.sidebar.markdown(f"**Criteria X:** {x_first5}+ first 5, {x_operator}{x_total} total")
-    st.sidebar.markdown(f"**Criteria Y:** {y_first5}+ first 5, {y_operator}{y_total} total")
+    st.sidebar.markdown(f"**Criteria X:** {x_first5_operator}{x_first5} first 5, {x_total_operator}{x_total} total")
+    st.sidebar.markdown(f"**Criteria Y:** {y_first5_operator}{y_first5} first 5, {y_total_operator}{y_total} total")
     
     # Criteria explanation (now that variables are defined)
     criteria_text = f"""
     <div class="criteria-box">
-        <strong>Criteria X:</strong> Games with {x_first5}+ runs in first 5 innings AND {x_operator}{x_total} total runs<br>
-        <strong>Criteria Y:</strong> Games with {y_first5}+ runs in first 5 innings AND {y_operator}{y_total} total runs
+        <strong>Criteria X:</strong> Games with {x_first5_operator}{x_first5} runs in first 5 innings AND {x_total_operator}{x_total} total runs<br>
+        <strong>Criteria Y:</strong> Games with {y_first5_operator}{y_first5} runs in first 5 innings AND {y_total_operator}{y_total} total runs
     </div>
     """
     st.markdown(criteria_text, unsafe_allow_html=True)
@@ -323,11 +325,11 @@ def main():
         
         # Analyze games
         total_games = len(games)
-        criteria_x_games = [game for game in games if meets_criteria_x(game, x_first5, x_total, x_operator)]
-        criteria_y_games = [game for game in games if meets_criteria_y(game, y_first5, y_total, y_operator)]
+        criteria_x_games = [game for game in games if meets_criteria_x(game, x_first5, x_first5_operator, x_total, x_total_operator)]
+        criteria_y_games = [game for game in games if meets_criteria_y(game, y_first5, y_first5_operator, y_total, y_total_operator)]
         
         # Remove Criteria X games from Criteria Y to avoid double counting
-        criteria_y_only = [game for game in criteria_y_games if not meets_criteria_x(game, x_first5, x_total, x_operator)]
+        criteria_y_only = [game for game in criteria_y_games if not meets_criteria_x(game, x_first5, x_first5_operator, x_total, x_total_operator)]
         
         # Analyze push combinations for betting insights
         push_analysis = analyze_push_combinations(games, push_first5, push_total)
@@ -355,7 +357,7 @@ def main():
                 label="🎯 Criteria X",
                 value=f"{x_count:,}",
                 delta=f"{x_percentage:.1f}%",
-                help=f"{x_first5}+ runs in first 5, {x_operator}{x_total} total"
+                help=f"{x_first5_operator}{x_first5} runs in first 5, {x_total_operator}{x_total} total"
             )
         
         with col3:
@@ -363,7 +365,7 @@ def main():
                 label="🎲 Criteria Y",
                 value=f"{y_count:,}",
                 delta=f"{y_percentage:.1f}%",
-                help=f"{y_first5}+ runs in first 5, {y_operator}{y_total} total (excluding Criteria X)"
+                help=f"{y_first5_operator}{y_first5} runs in first 5, {y_total_operator}{y_total} total (excluding Criteria X)"
             )
         
         with col4:
@@ -542,7 +544,7 @@ def main():
                 "💰 Most Profitable",
                 f"{criteria_x_count} games",
                 f"{(criteria_x_count/total_games*100):.1f}%",
-                help=f"{x_first5}+ first 5, {x_operator}{x_total} total (Criteria X)"
+                help=f"{x_first5_operator}{x_first5} first 5, {x_total_operator}{x_total} total (Criteria X)"
             )
         
         with col2:
@@ -570,7 +572,7 @@ def main():
             tab1, tab2, tab3 = st.tabs([f"🎯 Criteria X ({x_count} games)", f"🎲 Criteria Y ({y_count} games)", f"🎰 Push Analysis"])
             
             with tab1:
-                st.markdown(f"**Criteria X**: {x_first5}+ runs in first 5 innings AND {x_operator}{x_total} total runs")
+                st.markdown(f"**Criteria X**: {x_first5_operator}{x_first5} runs in first 5 innings AND {x_total_operator}{x_total} total runs")
                 if criteria_x_games:
                     for i, game in enumerate(criteria_x_games[:10]):
                         runs_first_5 = sum(inning['away_runs'] + inning['home_runs'] 
@@ -590,15 +592,34 @@ def main():
                             
                             with col3:
                                 st.write("**✅ Meets Criteria X**")
-                                st.write(f"{x_first5}+ in first 5: {'✅' if runs_first_5 >= x_first5 else '❌'}")
-                                if x_operator == "<":
-                                    st.write(f"Under {x_total} total: {'✅' if total_runs < x_total else '❌'}")
-                                elif x_operator == "<=":
-                                    st.write(f"≤{x_total} total: {'✅' if total_runs <= x_total else '❌'}")
-                                elif x_operator == "=":
-                                    st.write(f"={x_total} total: {'✅' if total_runs == x_total else '❌'}")
-                                else:
-                                    st.write(f">{x_total} total: {'✅' if total_runs > x_total else '❌'}")
+                                
+                                # Dynamic first 5 validation
+                                if x_first5_operator == ">=":
+                                    first5_check = f"{x_first5}+ in first 5: {'✅' if runs_first_5 >= x_first5 else '❌'}"
+                                elif x_first5_operator == ">":
+                                    first5_check = f">{x_first5} in first 5: {'✅' if runs_first_5 > x_first5 else '❌'}"
+                                elif x_first5_operator == "=":
+                                    first5_check = f"={x_first5} in first 5: {'✅' if runs_first_5 == x_first5 else '❌'}"
+                                elif x_first5_operator == "<=":
+                                    first5_check = f"≤{x_first5} in first 5: {'✅' if runs_first_5 <= x_first5 else '❌'}"
+                                else:  # "<"
+                                    first5_check = f"<{x_first5} in first 5: {'✅' if runs_first_5 < x_first5 else '❌'}"
+                                
+                                st.write(first5_check)
+                                
+                                # Dynamic total validation
+                                if x_total_operator == "<":
+                                    total_check = f"<{x_total} total: {'✅' if total_runs < x_total else '❌'}"
+                                elif x_total_operator == "<=":
+                                    total_check = f"≤{x_total} total: {'✅' if total_runs <= x_total else '❌'}"
+                                elif x_total_operator == "=":
+                                    total_check = f"={x_total} total: {'✅' if total_runs == x_total else '❌'}"
+                                elif x_total_operator == ">=":
+                                    total_check = f"≥{x_total} total: {'✅' if total_runs >= x_total else '❌'}"
+                                else:  # ">"
+                                    total_check = f">{x_total} total: {'✅' if total_runs > x_total else '❌'}"
+                                
+                                st.write(total_check)
                             
                             # Inning by inning breakdown
                             inning_df = pd.DataFrame([
@@ -619,7 +640,7 @@ def main():
                     st.info("No games found matching Criteria X.")
             
             with tab2:
-                st.markdown(f"**Criteria Y**: {y_first5}+ runs in first 5 innings AND {y_operator}{y_total} total runs (excluding Criteria X)")
+                st.markdown(f"**Criteria Y**: {y_first5_operator}{y_first5} runs in first 5 innings AND {y_total_operator}{y_total} total runs (excluding Criteria X)")
                 if criteria_y_only:
                     for i, game in enumerate(criteria_y_only[:10]):
                         runs_first_5 = sum(inning['away_runs'] + inning['home_runs'] 
@@ -639,15 +660,34 @@ def main():
                             
                             with col3:
                                 st.write("**✅ Meets Criteria Y**")
-                                st.write(f"{y_first5}+ in first 5: {'✅' if runs_first_5 >= y_first5 else '❌'}")
-                                if y_operator == "<":
-                                    st.write(f"<{y_total} total: {'✅' if total_runs < y_total else '❌'}")
-                                elif y_operator == "<=":
-                                    st.write(f"≤{y_total} total: {'✅' if total_runs <= y_total else '❌'}")
-                                elif y_operator == "=":
-                                    st.write(f"={y_total} total: {'✅' if total_runs == y_total else '❌'}")
-                                else:
-                                    st.write(f">{y_total} total: {'✅' if total_runs > y_total else '❌'}")
+                                
+                                # Dynamic first 5 validation
+                                if y_first5_operator == ">=":
+                                    first5_check = f"{y_first5}+ in first 5: {'✅' if runs_first_5 >= y_first5 else '❌'}"
+                                elif y_first5_operator == ">":
+                                    first5_check = f">{y_first5} in first 5: {'✅' if runs_first_5 > y_first5 else '❌'}"
+                                elif y_first5_operator == "=":
+                                    first5_check = f"={y_first5} in first 5: {'✅' if runs_first_5 == y_first5 else '❌'}"
+                                elif y_first5_operator == "<=":
+                                    first5_check = f"≤{y_first5} in first 5: {'✅' if runs_first_5 <= y_first5 else '❌'}"
+                                else:  # "<"
+                                    first5_check = f"<{y_first5} in first 5: {'✅' if runs_first_5 < y_first5 else '❌'}"
+                                
+                                st.write(first5_check)
+                                
+                                # Dynamic total validation
+                                if y_total_operator == "<":
+                                    total_check = f"<{y_total} total: {'✅' if total_runs < y_total else '❌'}"
+                                elif y_total_operator == "<=":
+                                    total_check = f"≤{y_total} total: {'✅' if total_runs <= y_total else '❌'}"
+                                elif y_total_operator == "=":
+                                    total_check = f"={y_total} total: {'✅' if total_runs == y_total else '❌'}"
+                                elif y_total_operator == ">=":
+                                    total_check = f"≥{y_total} total: {'✅' if total_runs >= y_total else '❌'}"
+                                else:  # ">"
+                                    total_check = f">{y_total} total: {'✅' if total_runs > y_total else '❌'}"
+                                
+                                st.write(total_check)
                             
                             # Inning by inning breakdown
                             inning_df = pd.DataFrame([
@@ -672,10 +712,10 @@ def main():
                 
                 # Show key categories with sample games
                 key_categories = [
-                    (f'over{push_first5}_first5_under{push_total}', f'💰 Most Profitable: {x_first5}+ First 5, Under {push_total} Total'),
+                    (f'over{push_first5}_first5_under{push_total}', f'💰 Most Profitable: {x_first5_operator}{x_first5} First 5, Under {push_total} Total'),
                     (f'exactly_{push_first5}_first5_under{push_total}', f'💵 Edge Case: Exactly {push_first5} First 5, Under {push_total} Total'),
                     (f'exactly_{push_first5}_first5_exactly{push_total}', f'🟡 Push: Exactly {push_first5} First 5, Exactly {push_total} Total'),
-                    (f'over{push_first5}_first5_exactly{push_total}', f'🟡 Push: {x_first5}+ First 5, Exactly {push_total} Total')
+                    (f'over{push_first5}_first5_exactly{push_total}', f'🟡 Push: {x_first5_operator}{x_first5} First 5, Exactly {push_total} Total')
                 ]
                 
                 for key, title in key_categories:
